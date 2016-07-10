@@ -8,5 +8,14 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
         </activity>
+
+        <service android:name=".passwordinput.PasswordInputMethodService"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            >
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data android:name="android.view.im" android:resource="@xml/password_input_method" />
+        </service>
     </application>
 </manifest>
