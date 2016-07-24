@@ -9,7 +9,7 @@ import android.inputmethodservice.KeyboardView;
 import android.util.AttributeSet;
 
 
-public class PasswordKeyboardView extends KeyboardView {
+public final class PasswordKeyboardView extends KeyboardView {
     private final Paint paint = new Paint();
     private boolean isCapsLocked;
 
@@ -20,7 +20,7 @@ public class PasswordKeyboardView extends KeyboardView {
         this.paint.setTextSize(30);
     }
 
-    public void toggleShift(int primaryCode) {
+    /* package */ void toggleShift(int primaryCode) {
         if (primaryCode == Keyboard.KEYCODE_SHIFT) {
             if (this.isCapsLocked) {
                 this.isCapsLocked = false;
@@ -61,9 +61,7 @@ public class PasswordKeyboardView extends KeyboardView {
     @Override
     protected boolean onLongPress(Keyboard.Key popupKey) {
         if (popupKey.codes.length > 1) {
-            ((PasswordInputMethodService) this.getOnKeyboardActionListener()).onLongPress(
-                    popupKey.codes[1]
-            );
+            this.getOnKeyboardActionListener().onKey(popupKey.codes[1], null);
             return true;
         } else {
             return super.onLongPress(popupKey);
@@ -82,6 +80,16 @@ public class PasswordKeyboardView extends KeyboardView {
                         1,
                         key.x + (key.width / 4),
                         key.y + (key.height / 4),
+                        this.paint
+                );
+            } else if (key.codes[0] == Keyboard.KEYCODE_SHIFT && this.isShifted()) {
+                this.paint.setStyle(
+                        this.isCapsLocked ? Paint.Style.FILL_AND_STROKE : Paint.Style.STROKE
+                );
+                canvas.drawCircle(
+                        key.x + (key.width / 4 * 3),
+                        key.y + (key.height / 4),
+                        10,
                         this.paint
                 );
             }

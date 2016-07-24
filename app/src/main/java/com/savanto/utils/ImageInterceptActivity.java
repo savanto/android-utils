@@ -9,5 +9,5 @@ import android.app.Activity;
  *
  * This can be expanded later to handle viewing images by other means.
  */
-public class ImageInterceptActivity extends Activity {
+public final class ImageInterceptActivity extends Activity {
 }

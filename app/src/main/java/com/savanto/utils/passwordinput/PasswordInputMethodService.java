@@ -1,5 +1,6 @@
 package com.savanto.utils.passwordinput;
 
+import android.annotation.SuppressLint;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
@@ -10,10 +11,11 @@ import android.view.inputmethod.InputConnection;
 import com.savanto.utils.R;
 
 
-public class PasswordInputMethodService extends InputMethodService
+public final class PasswordInputMethodService extends InputMethodService
         implements KeyboardView.OnKeyboardActionListener {
     private PasswordKeyboardView keyboardView;
 
+    @SuppressLint("InflateParams")
     @Override
     public View onCreateInputView() {
         this.keyboardView = (PasswordKeyboardView) this.getLayoutInflater().inflate(
@@ -34,10 +36,6 @@ public class PasswordInputMethodService extends InputMethodService
 
     @Override
     public void onPress(int primaryCode) {
-    }
-
-    public void onLongPress(int secondaryCode) {
-        this.onKey(secondaryCode, null);
     }
 
     @Override
