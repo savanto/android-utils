@@ -15,7 +15,7 @@
         <activity android:name=".netcat.NetcatActivity"
             android:taskAffinity="com.savanto.utils.netcat.NetcatTask"
             android:label="@string/netcat_app"
-            android:theme="@style/Theme.Netcat.Dialog"
+            android:theme="@style/Theme.Netcat"
             >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -23,6 +23,17 @@
             </intent-filter>
         </activity>
         <service android:name=".netcat.NetcatService" />
+
+        <activity android:name=".wget.WgetActivity"
+            android:taskAffinity="com.savanto.utils.wget.WgetTask"
+            android:label="@string/wget_app"
+            android:theme="@style/Theme.Wget"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <service android:name=".passwordinput.PasswordInputMethodService"
             android:permission="android.permission.BIND_INPUT_METHOD"

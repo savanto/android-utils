@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wget_app">wget</string>
+    <string name="wget_url_hint">url</string>
+    <string name="wget_start">Start</string>
+    <string name="wget_invalid_url">Invalid url.</string>
+
+    <style name="Theme.Wget" parent="@android:style/Theme.DeviceDefault.Light.Dialog.MinWidth">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
