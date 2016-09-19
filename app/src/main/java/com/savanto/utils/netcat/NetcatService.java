@@ -1,6 +1,8 @@
 package com.savanto.utils.netcat;
 
 import android.app.IntentService;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Environment;
@@ -25,6 +27,8 @@ public class NetcatService extends IntentService {
     private static final String EXTRA_PORT = "com.savanto.netcat.Port";
     private static final String EXTRA_FILENAME = "com.savanto.netcat.Filename";
 
+    private boolean cancelled;
+
     public NetcatService() {
         super(SERVICE_NAME);
     }
@@ -40,15 +44,16 @@ public class NetcatService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
+        final String hostname = intent.getStringExtra(EXTRA_HOSTNAME);
+        final int port = intent.getIntExtra(EXTRA_PORT, 0);
+        final String filename = intent.getStringExtra(EXTRA_FILENAME);
+
         final Socket socket;
         try {
-            socket = new Socket(
-                    intent.getStringExtra(EXTRA_HOSTNAME),
-                    intent.getIntExtra(EXTRA_PORT, 0)
-            );
+            socket = new Socket(hostname, port);
         } catch (IOException e) {
-            this.showError(e.getMessage());
             e.printStackTrace();
+            this.showError(e.getMessage());
             return;
         }
 
@@ -66,10 +71,10 @@ public class NetcatService extends IntentService {
             //noinspection ResultOfMethodCallIgnored
             downloads.mkdirs();
 
-            out = new FileOutputStream(new File(downloads, intent.getStringExtra(EXTRA_FILENAME)));
+            out = new FileOutputStream(new File(downloads, filename));
         } catch (IOException e) {
-            this.showError(e.getMessage());
             e.printStackTrace();
+            this.showError(e.getMessage());
             this.cleanUp(socket);
             return;
         }
@@ -78,24 +83,65 @@ public class NetcatService extends IntentService {
         try {
             in = socket.getInputStream();
         } catch (IOException e) {
-            this.showError(e.getMessage());
             e.printStackTrace();
+            this.showError(e.getMessage());
             this.cleanUp(socket, out);
             return;
         }
 
+        final int id = 0;
+        final NotificationManager notificationManager =
+                (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
+        final Notification.Builder notificationBuilder = new Notification.Builder(this);
+        notificationBuilder
+                .setContentTitle(this.getString(R.string.netcat_notif, hostname, port, filename))
+                .setSmallIcon(R.drawable.ic_download)
+                .setWhen(System.currentTimeMillis())
+                .setUsesChronometer(true)
+                .setProgress(0, 0, true);
+        notificationManager.notify(id, notificationBuilder.build());
+
+        final String status = this.getString(R.string.netcat_status);
+        int total = 0;
         try {
             final byte[] buffer = new byte[8 * 1024];
             int count;
             while ((count = in.read(buffer)) != -1) {
+                if (this.cancelled) {
+                    this.cleanUp(socket, out, in);
+                    notificationBuilder
+                            .setContentText(String.format(status, "Cancelled", total))
+                            .setProgress(0, 0, false)
+                            .setWhen(System.currentTimeMillis())
+                            .setUsesChronometer(false);
+                    notificationManager.notify(id, notificationBuilder.build());
+                    return;
+                }
                 out.write(buffer, 0, count);
+                total += count;
+                notificationBuilder.setContentText(String.format(status, "In progress", total));
+                notificationManager.notify(id, notificationBuilder.build());
             }
         } catch (IOException e) {
-            this.showError(e.getMessage());
             e.printStackTrace();
+            this.showError(e.getMessage());
+            notificationBuilder
+                    .setContentText(String.format(status, "Failed", total))
+                    .setProgress(0, 0, false)
+                    .setWhen(System.currentTimeMillis())
+                    .setUsesChronometer(false);
+            notificationManager.notify(id, notificationBuilder.build());
+            return;
         } finally {
             this.cleanUp(socket, out, in);
         }
+
+        notificationBuilder
+                .setContentText(String.format(status, "Complete", total))
+                .setProgress(0, 0, false)
+                .setWhen(System.currentTimeMillis())
+                .setUsesChronometer(false);
+        notificationManager.notify(id, notificationBuilder.build());
     }
 
     private void showError(final int error) {

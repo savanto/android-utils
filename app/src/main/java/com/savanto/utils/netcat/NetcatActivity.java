@@ -52,7 +52,10 @@ public class NetcatActivity extends Activity {
                     return;
                 }
 
-                prefs.edit().putString(PREF_LAST, String.format("%s:%s", hostname, port)).apply();
+                prefs.edit().putString(
+                        PREF_LAST,
+                        NetcatActivity.this.getString(R.string.netcat_host_port, hostname, port)
+                ).apply();
 
                 NetcatService.download(NetcatActivity.this, hostname, port, filename);
             }
