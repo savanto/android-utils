@@ -12,8 +12,8 @@ import android.widget.Toast;
 import com.savanto.utils.R;
 
 
-public class NetcatActivity extends Activity {
-    private static final String PREF_LAST = "com.savanto.netcat.LastHostPort";
+public final class NetcatActivity extends Activity {
+    private static final String PREF_LAST = "com.savanto.utils.netcat.LastHostPort";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

@@ -13,7 +13,7 @@
         </activity>
 
         <activity android:name=".netcat.NetcatActivity"
-            android:taskAffinity="com.savanto.NetcatTask"
+            android:taskAffinity="com.savanto.utils.netcat.NetcatTask"
             android:label="@string/netcat_app"
             android:theme="@style/Theme.Netcat.Dialog"
             >

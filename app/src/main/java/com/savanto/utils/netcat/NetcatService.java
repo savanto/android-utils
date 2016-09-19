@@ -20,13 +20,14 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 
-public class NetcatService extends IntentService {
+public final class NetcatService extends IntentService {
     private static final String SERVICE_NAME = "NetcatService";
 
-    private static final String EXTRA_HOSTNAME = "com.savanto.netcat.Hostname";
-    private static final String EXTRA_PORT = "com.savanto.netcat.Port";
-    private static final String EXTRA_FILENAME = "com.savanto.netcat.Filename";
+    private static final String EXTRA_HOSTNAME = "com.savanto.utils.netcat.Hostname";
+    private static final String EXTRA_PORT = "com.savanto.utils.netcat.Port";
+    private static final String EXTRA_FILENAME = "com.savanto.utils.netcat.Filename";
 
+    // TODO -- notification action -> broadcast receiver -> set cancelled = true
     private boolean cancelled;
 
     public NetcatService() {
