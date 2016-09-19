@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="netcat_app">Netcat</string>
+    <string name="netcat_host_hint">Hostname</string>
+    <string name="netcat_port_hint">Port</string>
+    <string name="netcat_file_hint">File</string>
+    <string name="netcat_start">Start</string>
+    <string name="netcat_invalid_host">Invalid hostname</string>
+    <string name="netcat_invalid_port">Invalid port</string>
+    <string name="netcat_invalid_file">Invalid filename</string>
+    <string name="netcat_connection_error">Connection error</string>
+
+    <style name="Theme.Netcat.Dialog" parent="@android:style/Theme.DeviceDefault.Light.Dialog.MinWidth">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
