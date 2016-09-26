@@ -1,0 +1,105 @@
+#!/bin/bash
+#
+# Ships' bells and watch script.
+# Version for linux.
+#
+# Displays the number of bells. Optionally displays the current watch,
+# a popup (requires xmessage), or TODO rings bells.
+#
+# Use with the following cron entry:
+# 0,30 * * * * /bin/bash /path/to/script
+
+usage() {
+  echo "Usage: ${0##*/} [options]"
+  echo
+  echo "With no arguments, outputs the number of bells in the current watch."
+  echo
+  echo "Options:"
+  echo "  -b        print visual indicator for the number of bells ('*')"
+  echo "  -w        print the current watch"
+  echo "  -n        post-Nore Mutiny Dog watches"
+  echo "  -p        show popup notification (requires xmessage)"
+  echo "  -q        do NOT print to stdout; other display options unaffected"
+  echo "  -d date   show bells for 'date'"
+  echo "  -h        print this help and exit"
+  echo
+  echo "All other options are ignored."
+}
+
+# Process command line arguments
+while getopts :bwnpqd:h opt; do
+  case "$opt" in
+    b)  SHOW_BELLS=1 ;;
+    w)  SHOW_WATCH=1 ;;
+    n)  NORE=1 ;;
+    p)  POPUP=1 ;;
+    q)  QUIET=1 ;;
+    d)  DATE="$OPTARG" ;;
+    h)  usage && exit 0 ;;
+  esac
+done
+
+# Watch names
+WATCH[0]="Morning Watch"
+WATCH[1]="Middle Watch"
+WATCH[2]="Forenoon Watch"
+WATCH[3]="Afternoon Watch"
+WATCH[4]="Dog Watch"
+WATCH[5]="First Watch"
+WATCH[6]="First Dog Watch"
+WATCH[7]="Last Dog Watch"
+
+
+# Calculate time and bells
+[[ -n "$DATE" ]] && clock=( $(date -d "$DATE" +"%H %M %j") ) \
+  || clock=( $(date +"%H %M %j") )
+hour=${clock[0]}
+minute=${clock[1]}
+day=${clock[2]}
+bells=$(( 10#$hour % 4 * 2 + 10#$minute / 30 ))
+watch=$(( 10#$hour / 4 ))
+
+# Special case: eight bells, still previous watch
+[[ "$(( 10#$hour % 4 + 10#$minute ))" -eq 0 ]] && bells=8 \
+  && watch=$(( ($watch + 5) % 6 ))
+
+# Special case: New Year, ring eight bells twice
+[[ "$(( 10#$day ))" -eq 1 ]] && [[ "$(( 10#$hour ))" -eq 0 ]] \
+  && [[ "$(( 10#$minute ))" -eq 0 ]] && bells=16
+
+# Special case: post-Nore mutiny style Dog watches
+if [[ "$watch" -eq 4 ]] && [[ -n "$NORE" ]]; then
+  if [[ "${hour}${minute}" -le 1800 ]]; then
+    watch=6
+  elif [[ "${hour}${minute}" -lt 2000 ]]; then
+    watch=7
+    bells=$(( $bells % 4 ))
+  else # Time is 2000 exactly
+    watch=7
+  fi
+fi
+
+# Compose visual bells indicator
+if [[ -n "$SHOW_BELLS" ]]; then
+  for ((bell=1; bell<bells; bell+=2)); do
+    output="${output}** "
+  done
+  [[ "$(( $bells % 2 ))" -ne 0 ]] && output="${output}*  "
+  for ((bell=7; bell>bells; bell-=2)); do
+    output="${output}   "
+  done
+else
+  output="$bells bells "
+fi
+
+# Append watch name
+[[ -n "$SHOW_WATCH" ]] && output="${output}${WATCH[$watch]}"
+
+# Display xmessage popup, if possible
+[[ -n "$POPUP" ]] && which xmessage > /dev/null \
+  && xmessage -timeout 5 -buttons "" -xrm 'xmessage.x: 0' -xrm 'xmessage.y: 0' \
+  -display :0 "$output" 2>/dev/null &
+
+# Output to stdout
+[[ -z "$QUIET" ]] && echo "$output"
+

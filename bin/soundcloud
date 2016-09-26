@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+
+"""
+Download files from Soundcloud.
+Requires a Soundcloud client id, which can be found by searching Github.
+"""
+
+import argparse
+import requests
+import sys
+from os.path import expanduser
+
+
+RESOLVE_URL = 'https://api.soundcloud.com/resolve?url={url}&client_id={id}'
+CHUNK_SIZE = 1024 * 8
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-i', '--id',
+        help='Soundcloud id to use.',
+    )
+    parser.add_argument(
+        '-c', '--creds',
+        default='~/.creds/soundcloud',
+        help='File with Soundcloud credential.',
+    )
+    parser.add_argument(
+        'urls',
+        metavar='URL',
+        nargs='+',
+        help='One or more Soundcloud urls.',
+    )
+
+    return parser.parse_args()
+
+def get_client_id(id=None, creds=None, **unused):
+    if id:
+        return id
+    else:
+        with open(expanduser(creds)) as f:
+            return f.readline().strip()
+
+def resolve(url, id):
+    """
+    Use resolve API to find file location and info.
+    """
+    response = requests.get(RESOLVE_URL.format(url=url, id=id))
+    return response.ok, response.json()
+
+def download(url, id, filename):
+    """
+    Use download API to get file and save to disk.
+    """
+    response = requests.get('{url}?client_id={id}'.format(url=url, id=id), stream=True)
+    if not response.ok:
+        raise
+    size = int(response.headers.get('content-length'))
+    progress = 0
+    with open(filename, 'wb') as f:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            if size:
+                print(
+                    '{progress}% {url} => {filename}'.format(
+                        progress=int(progress / size * 100),
+                        url=url,
+                        filename=filename,
+                    ),
+                    end='\r'
+                )
+            progress += f.write(chunk)
+
+if __name__ == '__main__':
+    args = parse_args()
+    id = get_client_id(**vars(args))
+
+    for url in args.urls:
+        ok, info = resolve(url, id)
+        if not ok or not info:
+            print(code, url)
+            continue
+
+        download_url = info.get('download_url')
+        if not download_url:
+            print('No download url for {}'.format(url))
+            continue
+        title = info.get('title', next(filter(None, reversed(url.split('/')))))
+        format = info.get('original_format', 'mp3')
+        filename = '{title}.{format}'.format(title=title, format=format)
+
+        try:
+            download(download_url, id, filename)
+            print('OK    {url} => {filename}'.format(url=url, filename=filename))
+        except:
+            print('ERROR {url}'.format(url=url))
+

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Wrapper for Android `adb` tool to extend its functionality.
+# Move this into your ~/bin directory and set the location of the adb binary
+# below to allow access to adb from anywhere.
+
+set -e
+
+# Set the location of adb binary.
+#ADB="/opt/android-sdk/platform-tools/adb"
+ADB=$HOME/devel/android-sdk-linux/platform-tools/adb
+[[ ! -x "$ADB" ]] && echo "adb executable not found at ${ADB}" >&2 && exit 1
+
+# Arguments
+case "$1" in
+  # Take screenshot
+  screencap)
+    "$ADB" -d shell screencap -p | \
+      sed 's/\r$//' >"${2:-$(date +%Y-%m-%d-%H%M%S_adb.png)}"
+    ;;
+
+  # Reinstall
+  reinstall)
+    shift
+    "$ADB" install -r "$@"
+    ;;
+
+  # Restart adb server
+  restart)
+    "$ADB" kill-server
+    "$ADB" start-server
+    "$ADB" devices
+    ;;
+
+  # Pull SQLite db from device.
+  pulldb)
+    [[ -z "$2" || -z "$3" ]] \
+      && echo "Usage: adb pulldb <package> <file>" >&2 && exit 1
+
+    "$ADB" -d shell "run-as $2 cat /data/data/$2/databases/$3" \
+      | sed 's/\r$//' >"$3"
+    ;;
+
+  rescan)
+    [[ -n "$2" ]] && data="-d file://$2"
+    "$ADB" shell am broadcast -a android.intent.action.MEDIA_MOUNTED ${data}
+    ;;
+
+  # Everything else
+  *)
+    "$ADB" "$@"
+    ;;
+esac
+
