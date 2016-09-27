@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# Wrapper for apt{,-get,-cache}
+set -e
+
+install() {
+  apt-get install --no-install-recommends "$@"
+}
+
+case "$1" in
+  # `apt-get` commands
+  get)
+    shift
+    case "$1" in
+      install) shift; install "$@" ;;
+      *) apt-get "$@" ;;
+    esac
+    ;;
+  install) shift; install "$@" ;;
+  changelog) apt-get "$@" ;;
+  upgrade) shift; apt-get update && apt-get upgrade -V ;;
+
+  # `apt-cache` commands
+  cache) shift; apt-cache "$@" ;;
+  policy|search|show) apt-cache "$@" ;;
+
+  # `apt-mark` commands
+  mark) shift; apt-mark "$@" ;;
+
+  # `apt` commands
+  edit) apt edit-sources ;;
+  *) apt "$@" ;;
+esac
+
