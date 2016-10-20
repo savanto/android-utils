@@ -1,0 +1,234 @@
+#!/bin/bash
+
+set -e
+
+# Set constants
+PASSHOME="${PASSHOME:-$HOME/.pass}"
+TMP=/run/user/$(id -u)
+TIMEOUT=${TIMEOUT:-30}
+
+# Set utilities.
+GPG="$(which gpg)"
+if [[ -n "$GPG" ]]; then
+  GPG="$GPG --quiet --yes --no-encrypt-to"
+else
+  echo "gpg not found on PATH, aborting." >&2 && exit 1
+fi
+
+CLIP="$(which xsel)"
+[[ -n "$CLIP" ]] && CLIP="$CLIP -b -l /dev/null" && CLEAR="$CLIP -d"
+
+GIT="$(which git)"
+[[ -n "$GIT" ]] && GIT="$GIT -C $PASSHOME"
+
+SHRED="$(which shred)"
+if [[ -n "$SHRED" ]]; then
+  SHRED="$SHRED -zu"
+else
+  SHRED="rm -rf"
+fi
+
+# Initialize password store if it does not exist.
+[[ ! -d "$PASSHOME" ]] && (umask 0077 && mkdir -p "$PASSHOME")
+# Initialize git repo if it does not exist.
+[[ ! -d "$PASSHOME/.git" && -n "$GIT" ]] && (umask 0077 && $GIT init)
+
+umask 0177
+
+usage() {
+  local pass="${0##*/}"
+  local cmd="$1"
+  case "$cmd" in
+    gen|generate)
+      echo "Usage: $pass $cmd [-a] [-l <length>] [-r <key>] <name>"
+      echo "  Generate password for <name>."
+      echo "  -a      Use only alpha-numeric chars (default is to use all printable chars)."
+      echo "  -l      Password length (default is 32)."
+      echo "  -r      GPG key to use for encryption."
+      ;;
+    add|new|insert)
+      echo "Usage: $pass $cmd [-r] <name> [password]"
+      echo "  Add [password] for <name>. Entering password on the commandline is optional."
+      echo "  If not entered, you will be prompted to enter it without echoing to the commandline."
+      echo "  -r      GPG key to use for encryption."
+      ;;
+    edit)
+      echo "Usage: $pass $cmd [-e <editor>] <name>"
+      echo "  Edit a password for <name> using an editor. If password doesn't exist, it is created."
+      echo "  -e      Specify an editor to use (default is the value of EDITOR env variable)."
+      ;;
+    show)
+      echo "Usage: $pass $cmd [-c] <name>"
+      echo "  Show password data."
+      echo "  -c      Do not display password data, only copy to clipboard. This is the same as"
+      echo "          using just $pass <name> with no subcommand or options."
+      ;;
+    rm|remove|del|delete)
+      echo "Usage: $pass $cmd <name>"
+      echo "  Delete password data."
+      ;;
+    help|*)
+      echo "Usage: $pass [<subcommand> <args>]"
+      echo "  Manage password data files. Possible subcommands are:"
+      echo "  show    Show password data."
+      echo "  gen     Generate password."
+      echo "  add     Add a new password."
+      echo "  edit    Edit a password or manually add a new one."
+      echo "  rm      Delete a password."
+      echo "  help    Show this help."
+      echo
+      echo "Type $pass help <subcommand> for help on a specific action."
+      ;;
+  esac
+}
+
+_help() {
+  [[ -z "$1" ]] && usage help && exit 0
+  usage "$1" && exit 0
+}
+
+commit() {
+  [[ -n "$GIT" ]] && (umask 0077 && $GIT add "$1" && $GIT commit -m "$2")
+}
+
+clip() {
+  [[ -z "$CLIP" ]] && echo "No clipping utility, cannot copy." >&2 && return
+  echo "$1" | $CLIP
+  { sleep $TIMEOUT && $CLEAR; } &
+}
+
+add() {
+  while getopts :r: opt; do
+    case "$opt" in
+      r) local key="-r $OPTARG" ;;
+      ?) usage add && exit 1
+    esac
+  done
+  shift $((OPTIND-1))
+
+  local name="$1"
+  [[ -z "$name" ]] && usage add && exit 1
+  local file="$PASSHOME/${name}.gpg"
+
+  if [[ $# -eq 2 ]]; then
+    local pass="$2"
+  elif [[ $# -eq 1 ]]; then
+    local pass=
+    local pass2=
+    read -sp "Enter password: " pass
+    echo
+    read -sp "Confirm password: " pass2
+    echo
+    [[ "$pass" != "$pass2" ]] && echo "Passwords don't match." >&2 && exit 1
+  fi
+
+  if [[ -f "$file" ]]; then
+    read -p "Password for $name exists. Overwrite? [y/n] " confirm
+    [[ ! "$confirm" =~ ^[yY] ]] && return
+    $GPG -d "$file" | sed "1s/^.*$/$pass/" | $GPG $key -e -a -o "$file"
+    commit "$file" "Update password for $name"
+  else
+    echo "$pass" | $GPG $key -e -a -o "$file"
+    commit "$file" "Add password for $name"
+  fi
+
+  clip "$pass"
+  unset pass pass2 key name file
+}
+
+edit() {
+  while getopts :e:r: opt; do
+    case "$opt" in
+      e) EDITOR="$OPTARG" ;;
+      r) local key="-r $OPTARG" ;;
+      ?) usage edit && exit 1 ;;
+    esac
+  done
+  shift $((OPTIND-1))
+
+  local name="$1"
+  [[ -z "$name" ]] && usage edit && exit 1
+  local file="$PASSHOME/${name}.gpg"
+  local tmp=$(mktemp -p $TMP)
+  [[ -f "$file" ]] && $GPG -d "$file" >"$tmp"
+  $EDITOR "$tmp"
+  $GPG $key -e -a -o "$file" "$tmp"
+  commit "$file" "Edit $name"
+  $SHRED "$tmp"
+  unset name file tmp
+}
+
+generate() {
+  local chars=print
+  local length=32
+  while getopts :al:r: opt; do
+    case "$opt" in
+      a) chars=alnum ;;
+      l) length="$OPTARG" ;;
+      r) local key="-k $OPTARG" ;;
+      ?) usage generate && exit 1
+    esac
+  done
+  shift $((OPTIND-1))
+  [[ $# -eq 1 ]] || (usage generate && exit 1)
+
+  local name="$1"
+  local pass="$(</dev/urandom tr -cd [:$chars:] | fold -b$length | head -1)"
+  add $key "$name" "$pass"
+  unset pass name key
+}
+
+show() {
+  while getopts :c opt; do
+    case "$opt" in
+      c) local clip=1 ;;
+      ?) usage show && exit 1 ;;
+    esac
+  done
+  shift $((OPTIND-1))
+
+  local name="$1"
+  [[ -z "$name" ]] && list && exit 0
+  local file="$PASSHOME/${name}.gpg"
+  [[ ! -f "$file" ]] && echo "$name does not exist." >&2 && exit 1
+  [[ ! -r "$file" ]] && echo "$name does not have read permissions." >&2 && exit 1
+
+  if [[ -z "$clip" ]]; then
+    $GPG -d "$file"
+  else
+    clip $($GPG -d "$file" | head -1)
+  fi
+
+  unset name file
+}
+
+remove() {
+  local name="$1"
+  [[ -z "$name" ]] && usage remove && exit 1
+  local file="$PASSHOME/${name}.gpg"
+  [[ -d "$file" ]] && rmdir "$file" && return
+  [[ -f "$file" ]] && (umask 0077 && $GIT rm "$file" && $GIT commit -m "Removed $name")
+
+  unset name file
+}
+
+list() {
+  find "$PASSHOME/$1" -name .git\* -prune -o -print \
+    | sort \
+    | sed -e "s}$PASSHOME/}}" -e '/\.gpg/!d' -e 's}\([^/]*\)/}\x1B\[34m\1\x1B\[00m/}g' -e 's/\.gpg//'
+}
+
+[[ -z "$1" ]] && list && exit 0
+cmd="$1"
+shift
+case "$cmd" in
+  show) show "$@" ;;
+  gen|generate) generate "$@" ;;
+  add|new|insert) add "$@" ;;
+  edit) edit "$@" ;;
+  ls|list) list "$@" ;;
+  rm|remove|del|delete) remove "$@" ;;
+  help|--help|-h) _help "$@" ;;
+  *) show -c "$cmd" "$@" ;;
+esac
+
