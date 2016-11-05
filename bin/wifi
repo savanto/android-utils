@@ -1,28 +1,73 @@
 #!/bin/bash
-#
-# Script to connect to wireless networks.
-# Uses wpa_supplicant and dhclient
-# TODO unsecured/insecure networks
-#
 
 set -e
 
-[[ $UID -ne 0 ]] && echo "Must be root." && exit 1
+[[ "$UID" -ne 0 ]] && echo "Must be root." && exit 1
 
 usage() {
-  echo "Usage: ${0##*/} [-h] [-c config|<ssid> <pass>]"
+  echo "Usage: ${0##*/} [options] [command | <essid> [<pass>]]"
   echo
-  echo "-c config       Config file with network setup info."
-  echo "<ssid> <pass>   Network and passphrase to use. Passphrase must be 8..63"
-  echo "                characters."
-  echo "-h              Print this message and exit."
-  echo "---             ---"
-  echo "                With no arguments, the output of 'pass misc/wifi.conf'"
-  echo "                will be used as the WPA config."
+  echo "Commands:"
+  echo "  scan          Scan access points in range and output a list."
+  echo
+  echo "Options:"
+  echo "  -c config     Config file with network setup info."
+  echo "  -h            Print this message and exit."
+  echo
+  echo "  essid         ESSID of access point to connect to. If no password is specified, attempt"
+  echo "                to connect as if access point is open."
+  echo "  passphrase    Passphrase for access point. Must be 8..63 characters."
+  echo
+  echo "With no arguments, the output of 'pass misc/wifi.conf' is used as the WPA config."
+}
+
+scan() {
+  awk -f <(cat << 'EOF'
+function output() {
+  printf("%s %s %s (%s GHz)\n", encrypted, quality, essid, frequency);
+}
+
+BEGIN {
+  n = 0;
+}
+
+/Cell [0-9]* -/ {
+  if (n++) {
+    output();
+  }
+}
+
+/Frequency:/ {
+  split($1, temp, ":");
+  frequency = temp[2];
+}
+
+/Quality=/ {
+  split($1, temp, "=");
+  split(temp[2], temp, "/");
+  quality = temp[1];
+}
+
+/Encryption key:/ {
+  split($0, temp, ":");
+  encrypted = temp[2] == "on" ? "#" : " ";
+}
+
+/ESSID:/ {
+  split($0, temp, ":");
+  essid = temp[2];
+}
+
+END {
+  if (n) {
+    output();
+  }
+}
+EOF
+)
 }
 
 IFACE=wlan0
-# TODO this only works on ubuntu
 WIFI=/run/user/$(id -u $SUDO_USER)/wifi.conf
 
 while getopts c:h opt; do
@@ -31,21 +76,34 @@ while getopts c:h opt; do
     h) usage && exit ;;
   esac
 done
+shift $((OPTIND-1))
 
-trap "shred -zu $WIFI 2>/dev/null" ERR INT
-if [[ -r "$CONF" ]]; then
-  (umask 0077 && cat "$CONF" >"$WIFI")
-elif [[ $# -eq 2 ]]; then
-  (umask 0077 && wpa_passphrase "$1" "$2" >"$WIFI") \
-    || (echo "Bad ssid or passphrase." && exit 1)
-elif [[ -r "$WIFI" ]]; then
-  :
-else
-  (umask 0077 && pass misc/wifi.conf >"$WIFI")
-fi
+case "$1" in
+  scan)
+    ifconfig "$IFACE" up
+    iwlist "$IFACE" scan | scan
+    ;;
+  *)
+    killall wpa_supplicant 2>/dev/null || true
+    dhclient -r "$IFACE" || true
 
-killall wpa_supplicant 2>/dev/null || true
-dhclient -r "$IFACE" || true
-wpa_supplicant -Dnl80211,wext -i"$IFACE" -c"$WIFI" -B
-dhclient "$IFACE"
+    if [[ $# -eq 1 ]]; then
+      iwconfig "$IFACE" essid "$1"
+    else
+      trap "shred -zu $WIFI 2>/dev/null" ERR INT
+      if [[ -r "$CONF" ]]; then
+        (umask 0077 && cat "$CONF" >"$WIFI")
+      elif [[ $# -eq 2 ]]; then
+        (umask 0077 && wpa_passphrase "$1" "$2" >"$WIFI") \
+          || (echo "Bad ssid or passphrase." && exit 1)
+      elif [[ -r "$WIFI" ]]; then
+        :
+      else
+        (umask 0077 && pass misc/wifi.conf >"$WIFI")
+      fi
+      wpa_supplicant -Dnl80211,wext -i"$IFACE" -c"$WIFI" -B
+    fi
+    dhclient "$IFACE"
+    ;;
+esac
 
