@@ -1,8 +1,23 @@
 #!/bin/bash
+#
+# Script for connecting to wifi networks.
+#
+# Dependencies
+# - dhclient -- use DHCP
+# - wpa_supplicant -- connect to WPA-encrypted networks
+# - wpa_passphrase -- create WPA creds usable by wpa_supplicant
+# - gpg -- decrypt personal network creds files
+# - iwlist -- network discovery
+# - iwconfig -- connect to open/WPS-encrypted networks
 
 set -e
 
 [[ "$UID" -ne 0 ]] && echo "Must be root." && exit 1
+
+IFACE=wlan0
+CONF=$HOME/.pass/misc/wifi.conf.gpg
+WIFI=/run/user/$(id -u $SUDO_USER)/wifi.conf
+
 
 usage() {
   echo "Usage: ${0##*/} [options] [command | <essid> [<pass>]]"
@@ -18,7 +33,8 @@ usage() {
   echo "                to connect as if access point is open."
   echo "  passphrase    Passphrase for access point. Must be 8..63 characters."
   echo
-  echo "With no arguments, the output of 'pass misc/wifi.conf' is used as the WPA config."
+  echo "With no arguments, attempts to connect to any available WPA-protected network,"
+  echo "using the output of 'gpg --decrypt $CONF' as the WPA credentials."
 }
 
 scan() {
@@ -67,12 +83,9 @@ EOF
 )
 }
 
-IFACE=wlan0
-WIFI=/run/user/$(id -u $SUDO_USER)/wifi.conf
-
 while getopts c:h opt; do
   case "$opt" in
-    c) CONF="$OPTARG" ;;
+    c) conf="$OPTARG" ;;
     h) usage && exit ;;
   esac
 done
@@ -91,15 +104,15 @@ case "$1" in
       iwconfig "$IFACE" essid "$1"
     else
       trap "shred -zu $WIFI 2>/dev/null" ERR INT
-      if [[ -r "$CONF" ]]; then
+      if [[ -r "$conf" ]]; then
         (umask 0077 && cat "$CONF" >"$WIFI")
       elif [[ $# -eq 2 ]]; then
         (umask 0077 && wpa_passphrase "$1" "$2" >"$WIFI") \
-          || (echo "Bad ssid or passphrase." && exit 1)
+          || (echo "Bad essid or passphrase." && exit 1)
       elif [[ -r "$WIFI" ]]; then
         :
       else
-        (umask 0077 && pass misc/wifi.conf >"$WIFI")
+        (umask 0077 && gpg --decrypt "$CONF" >"$WIFI")
       fi
       wpa_supplicant -Dnl80211,wext -i"$IFACE" -c"$WIFI" -B
     fi
