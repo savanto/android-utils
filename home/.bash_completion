@@ -1,0 +1,33 @@
+#
+# Custom bash completions.
+#
+
+_pass() {
+  local IFS=$'\n'
+  local PASSHOME="${PASSHOME:-$HOME/.pass}"
+
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  local prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  case "$prev" in
+    edit|gen|generate|rm|remove|del|delete|ls|list|show|pass)
+      COMPREPLY=($(compgen -X '*/.git*' -f "$PASSHOME/$cur" | sed -e "s,$PASSHOME/,," -e 's/.gpg//'))
+      ;;
+    import)
+      compopt -o default -o filenames
+      ;;
+  esac
+
+  if [[ -n "$COMPREPLY" ]]; then
+    for ((i=0; i < ${#COMPREPLY[@]}; ++i)); do
+      [[ -d "$PASSHOME/${COMPREPLY[$i]}" ]] && COMPREPLY[$i]+=/
+    done
+    [[ ${#COMPREPLY[@]} -eq 1 && -d "$PASSHOME/$COMPREPLY" ]] && compopt -o nospace
+  elif [[ "$prev" == "pass" ]]; then
+    local cmd="add new insert edit generate import rm remove delete ls list show help"
+    COMPREPLY=($(IFS=' ' compgen -W "$cmd" -- "$cur"))
+  fi
+}
+
+complete -F _pass pass
+
