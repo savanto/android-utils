@@ -42,8 +42,8 @@ PROMPT_DIRTRIM=3
 unset BLUE GREEN RESET
 
 # Set the colors used by ls. See dircolors(1) for options and fine-tuning.
-[[ -f "${HOME}/.dircolors" ]] && DIRCOLORS="${HOME}/.dircolors"
-eval "$(dircolors --sh $DIRCOLORS)"
+[[ -f "${HOME}/.dircolors" ]] && DIRCOLORS="${HOME}/.dircolors" \
+  && eval "$(dircolors --sh $DIRCOLORS)"
 
 # Source alias definitions.
 [[ -f "${HOME}/.bash_aliases" ]] && . "${HOME}/.bash_aliases"
