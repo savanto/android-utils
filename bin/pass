@@ -44,18 +44,24 @@ usage() {
       echo "  Generate password for <name>."
       echo "  -a      Use only alpha-numeric chars (default is to use all printable chars)."
       echo "  -l      Password length (default is 32)."
-      echo "  -r      GPG key to use for encryption."
+      echo "  -r      Specify GPG key to use for encryption."
       ;;
     add|new|insert)
-      echo "Usage: $pass $cmd [-r] <name> [password]"
+      echo "Usage: $pass $cmd [-r <key>] <name> [password]"
       echo "  Add [password] for <name>. Entering password on the commandline is optional."
       echo "  If not entered, you will be prompted to enter it without echoing to the commandline."
-      echo "  -r      GPG key to use for encryption."
+      echo "  -r      Specify GPG key to use for encryption."
+      ;;
+    import)
+      echo "Usage: $pass $cmd [-r <key>] <file> <name>"
+      echo "  Decrypt <file> and re-encrypt to location given by <name>."
+      echo "  -r      Specify GPG key to use for encryption."
       ;;
     edit)
-      echo "Usage: $pass $cmd [-e <editor>] <name>"
+      echo "Usage: $pass $cmd [-r <key>] [-e <editor>] <name>"
       echo "  Edit a password for <name> using an editor. If password doesn't exist, it is created."
       echo "  -e      Specify an editor to use (default is the value of EDITOR env variable)."
+      echo "  -r      Specify GPG key to use for encryption."
       ;;
     show)
       echo "Usage: $pass $cmd [-c] <name>"
@@ -170,7 +176,7 @@ generate() {
     esac
   done
   shift $((OPTIND-1))
-  [[ $# -eq 1 ]] || (usage generate && exit 1)
+  [[ $# -eq 1 ]] || { usage generate && exit 1; }
 
   local name="$1"
   local pass="$(</dev/urandom tr -cd [:$chars:] | fold -b$length | head -1)"
@@ -202,6 +208,25 @@ show() {
   unset name file
 }
 
+import() {
+  while getopts :r: opt; do
+    case "$opt" in
+      r) local key="-r $OPTARG" ;;
+      ?) usage import && exit 1
+    esac
+  done
+  shift $((OPTIND-1))
+
+  [[ $# -eq 2 ]] || { usage import && exit 1; }
+  local input="$1"
+  local name="$2"
+  local file="$PASSHOME/${name}.gpg"
+  $GPG -d "$input" | $GPG $key -e -a -o "$file"
+  commit "$file" "Import $name"
+
+  unset key input name file
+}
+
 remove() {
   local name="$1"
   [[ -z "$name" ]] && usage remove && exit 1
@@ -225,6 +250,7 @@ case "$cmd" in
   show) show "$@" ;;
   gen|generate) generate "$@" ;;
   add|new|insert) add "$@" ;;
+  import) import "$@" ;;
   edit) edit "$@" ;;
   ls|list) list "$@" ;;
   rm|remove|del|delete) remove "$@" ;;
