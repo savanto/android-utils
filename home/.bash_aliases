@@ -34,3 +34,5 @@ alias acp='apt-cache policy'
 # sqlite3
 alias sqlite='sqlite3'
 
+# shred
+alias shred='shred -zu'
