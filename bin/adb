@@ -7,8 +7,7 @@
 set -e
 
 # Set the location of adb binary.
-#ADB="/opt/android-sdk/platform-tools/adb"
-ADB=$HOME/devel/android-sdk-linux/platform-tools/adb
+ADB=/opt/android-sdk/platform-tools/adb
 [[ ! -x "$ADB" ]] && echo "adb executable not found at ${ADB}" >&2 && exit 1
 
 # Arguments
@@ -39,6 +38,25 @@ case "$1" in
 
     "$ADB" -d shell "run-as $2 cat /data/data/$2/databases/$3" \
       | sed 's/\r$//' >"$3"
+    ;;
+
+  rescan)
+    [[ -n "$2" ]] && data="-d file://$2"
+    "$ADB" shell am broadcast -a android.intent.action.MEDIA_MOUNTED ${data}
+    ;;
+
+  # Everything else
+  *)
+    "$ADB" "$@"
+    ;;
+
+  # Reverse socket connections.
+  reverse)
+    if [[ "$2" =~ --.* ]]; then
+      "$ADB" "$@"
+    else
+      "$ADB" reverse ${2:-tcp:8081} ${3:-tcp:8081}
+    fi
     ;;
 
   rescan)
