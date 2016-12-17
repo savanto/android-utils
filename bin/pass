@@ -104,6 +104,7 @@ clip() {
 }
 
 add() {
+  local OPTIND
   while getopts :r: opt; do
     case "$opt" in
       r) local key="-r $OPTARG" ;;
@@ -143,6 +144,7 @@ add() {
 }
 
 edit() {
+  local OPTIND
   while getopts :e:r: opt; do
     case "$opt" in
       e) EDITOR="$OPTARG" ;;
@@ -167,11 +169,12 @@ edit() {
 generate() {
   local chars=print
   local length=32
+  local OPTIND
   while getopts :al:r: opt; do
     case "$opt" in
       a) chars=alnum ;;
       l) length="$OPTARG" ;;
-      r) local key="-k $OPTARG" ;;
+      r) local key="-r $OPTARG" ;;
       ?) usage generate && exit 1
     esac
   done
@@ -185,6 +188,7 @@ generate() {
 }
 
 show() {
+  local OPTIND
   while getopts :c opt; do
     case "$opt" in
       c) local clip=1 ;;
@@ -209,6 +213,7 @@ show() {
 }
 
 import() {
+  local OPTIND
   while getopts :r: opt; do
     case "$opt" in
       r) local key="-r $OPTARG" ;;
