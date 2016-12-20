@@ -45,11 +45,6 @@ case "$1" in
     "$ADB" shell am broadcast -a android.intent.action.MEDIA_MOUNTED ${data}
     ;;
 
-  # Everything else
-  *)
-    "$ADB" "$@"
-    ;;
-
   # Reverse socket connections.
   reverse)
     if [[ "$2" =~ --.* ]]; then

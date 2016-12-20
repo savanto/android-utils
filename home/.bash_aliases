@@ -15,6 +15,7 @@ alias lsd='ls -d'
 alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
+alias rgrep='grep -R'
 
 # dmesg
 alias dmesg='dmesg --color=auto'
@@ -36,3 +37,14 @@ alias sqlite='sqlite3'
 
 # shred
 alias shred='shred -zu'
+
+# ps
+alias ps='ps -ef'
+alias pgrep='pgrep -a'
+
+# weather
+alias wttr='curl -4 wttr.in/San%20Francisco'
+
+# clock
+alias clock='tty-clock'
+

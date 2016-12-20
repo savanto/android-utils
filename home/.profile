@@ -30,7 +30,7 @@ PATH="${PATH}:/bin"
 # Essential system binaries
 PATH="${PATH}:/sbin"
 
-# Prepend bin directory installedy by pip if it exists
+# Prepend bin directory installed by pip if it exists
 [[ -d "${HOME}/.local/bin" ]] && PATH="${HOME}/.local/bin:${PATH}"
 # Prepend personal bin directory to PATH if it exists
 [[ -d "${HOME}/bin" ]] && PATH="${HOME}/bin:${PATH}"

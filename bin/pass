@@ -206,7 +206,7 @@ show() {
   if [[ -z "$clip" ]]; then
     $GPG -d "$file"
   else
-    clip $($GPG -d "$file" | head -1)
+    clip "$($GPG -d "$file" | head -1)"
   fi
 
   unset name file

@@ -13,7 +13,10 @@ export TERM=xterm-256color
 # Do not write duplicate lines to the history list.
 # See bash(1) for info.
 HISTCONTROL=ignoreboth
-
+# Number of lines saved to HISTFILE
+HISTFILESIZE=10000
+# Number of lines loaded from HISTFILE
+HISTSIZE=2000
 # Set shell options. For a full list of options see bash(1).
 # Append the history list to the file named by the value of the HISTFILE
 # variable when the shell exits, rather than overwriting the file.
