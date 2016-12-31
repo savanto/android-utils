@@ -45,6 +45,9 @@ alias pgrep='pgrep -a'
 # weather
 alias wttr='curl -4 wttr.in/San%20Francisco'
 
+# ip
+alias ip?='curl https://api.ipify.org/'
+
 # clock
 alias clock='tty-clock'
 
