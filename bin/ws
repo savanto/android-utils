@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+
+from bs4 import BeautifulSoup
+import requests
+import sys
+import urllib
+import warnings
+
+
+class SearchEngine(object):
+    def __init__(self, url, params=None):
+        self._url = url
+        self._params = params
+
+    def search(self, query, limit=10):
+        raise NotImplementedError
+
+    class NoResults(LookupError):
+        pass
+
+
+class ScraperSearchEngine(SearchEngine):
+    def __init__(self, url, params=None, method=requests.get):
+        super(ScraperSearchEngine, self).__init__(url, params=params)
+        self._method = method
+        self._user_agent = None
+
+    def search(self, query, limit=10):
+        data = dict(self._params, q=query)
+        self.url = '{base}?{query}'.format(base=self._url, query=urllib.parse.urlencode(data))
+        return self.scrape(BeautifulSoup(self._method(
+            self._url,
+            data=data if self._method == requests.post else None,
+            params=data if self._method == requests.get else None,
+            headers={'User-Agent': self._user_agent},
+        ).text))
+
+    def scrape(self, html, limit=10):
+        raise NotImplementedError
+
+
+class DuckDuckGo(ScraperSearchEngine):
+    def __init__(self):
+        super(DuckDuckGo, self).__init__(
+            url='https://duckduckgo.com/html/',
+            params={
+                'ia': 'web',    # Category
+                'kc': -1,       # Auto load
+                'kd': 1,        # Redirect
+                'kg': 'p',      # POST
+                'kh': 1,        # HTTPS
+                'ko': -2,       # Header
+                'kp': -1,       # Safe search
+                'kz': -1,       # Instant answers
+                'k1': -1,       # Advertisements
+                'kac': -1,      # Auto suggest
+            },
+            method=requests.post,
+        )
+
+    def scrape(self, html, limit=10):
+        results = html.select('div.result.results_links.results_links_deep.web-result', limit=limit)
+        return [self._format(result) for result in results]
+
+    def _format(self, result):
+        if 'result--no-result' in result['class']:
+            raise SearchEngine.NoResults
+
+        title_tag = result.select('a.result__a')[0]
+        return {
+            'title': self._text(title_tag),
+            'link': title_tag['href'],
+            'snippet': self._text(result.select('a.result__snippet')[0], highlight=True),
+        }
+
+    def _text(self, tag, highlight=False):
+        if highlight:
+            for bold in tag('b'):
+                bold.replace_with('{{BOLD}}{content}{{RESET}}'.format(content=bold.string))
+        return ' '.join(tag.stripped_strings)
+
+
+class Google(DuckDuckGo):
+    def __ini__(self):
+        super(Google, self).__init__()
+        self._user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36'
+
+    def search(self, query, limit=10):
+        return super(Google, self).search('!g {query}'.format(query=query), limit=limit)
+
+    def scrape(self, html, limit=10):
+        results = html.select(
+            'div#center_col div#res div#search div#ires ol div.g',
+            limit=limit
+        )
+
+        if not results:
+            raise SearchEngine.NoResults
+
+        return filter(lambda r: r.get('snippet'), [self._format(result) for result in results])
+
+    def _format(self, result):
+        title_tag = result.select('h3.r a')[0]
+        return {
+            'title': self._text(title_tag),
+            'link': urllib.parse.parse_qs(urllib.parse.urlparse(title_tag['href']).query)['q'][0],
+            'snippet': self._text(result.select('span.st')[0], highlight=True),
+        }
+
+
+if __name__ == '__main__':
+    # BeautifulSoup doesn't like that HTML parser is not explicitly supplied, but I prefer that it
+    # be chosen dynamically: lxml if available, else fall back to html.parser.
+    warnings.filterwarnings('ignore')
+
+    # TODO more sophisticated args using argparse
+    if len(sys.argv) < 2:
+        print('Usage: {ws} <search query>'.format(ws=sys.argv[0]))
+        sys.exit(1)
+
+    # Terminal color codes.
+    BLUE = '\033[00;34m'
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+
+    # Do search.
+    engine = Google()
+    query = ' '.join(sys.argv[1:])
+    try:
+        results = engine.search(query)
+    except SearchEngine.NoResults:
+        print('No results.')
+        sys.exit(0)
+
+    # Format results.
+    print(
+        '{BOLD}Engine{RESET}: {engine} '
+        '{BOLD}Query{RESET}: {query} '
+        '{BOLD}Url{RESET}: {BLUE}{url}{RESET}'
+        .format(
+            engine=engine.__class__.__name__,
+            query=query,
+            url=engine.url,
+            BOLD=BOLD,
+            RESET=RESET,
+            BLUE=BLUE,
+        )
+    )
+    print('-' * 100)
+
+    nl = ''
+    for result in results:
+        print('{nl}{BOLD}{title}{RESET} {BLUE}{link}{RESET}\n{snippet}'.format(
+            nl=nl,
+            title=result['title'],
+            link=result['link'],
+            snippet=result['snippet'].format(BOLD=BOLD, RESET=RESET),
+            BOLD=BOLD,
+            BLUE=BLUE,
+            RESET=RESET,
+        ))
+        nl = '\n'
+
