@@ -10,6 +10,7 @@ filetype indent on " Load filetype-specific indentation files.
 filetype plugin on " Enable filetype-specific plugins.
 set encoding=utf8 " Set encoding.
 set fileformats=unix,dos,mac " Order of filetypes to try to use.
+set hidden " Change bufferes without writing to file.
 set autoread " Re-read file when it is changed outside of vim.
 set writebackup " Temp backup during write, removed on success.
 set viminfo='20,<50,s10,h,% " Remember marks, registers, searches, buffer list.
