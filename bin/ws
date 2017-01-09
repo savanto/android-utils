@@ -80,34 +80,6 @@ class DuckDuckGo(ScraperSearchEngine):
         return ' '.join(tag.stripped_strings)
 
 
-class Google(DuckDuckGo):
-    def __ini__(self):
-        super(Google, self).__init__()
-        self._user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36'
-
-    def search(self, query, limit=10):
-        return super(Google, self).search('!g {query}'.format(query=query), limit=limit)
-
-    def scrape(self, html, limit=10):
-        results = html.select(
-            'div#center_col div#res div#search div#ires ol div.g',
-            limit=limit
-        )
-
-        if not results:
-            raise SearchEngine.NoResults
-
-        return filter(lambda r: r.get('snippet'), [self._format(result) for result in results])
-
-    def _format(self, result):
-        title_tag = result.select('h3.r a')[0]
-        return {
-            'title': self._text(title_tag),
-            'link': urllib.parse.parse_qs(urllib.parse.urlparse(title_tag['href']).query)['q'][0],
-            'snippet': self._text(result.select('span.st')[0], highlight=True),
-        }
-
-
 if __name__ == '__main__':
     # BeautifulSoup doesn't like that HTML parser is not explicitly supplied, but I prefer that it
     # be chosen dynamically: lxml if available, else fall back to html.parser.
@@ -124,7 +96,7 @@ if __name__ == '__main__':
     RESET = '\033[0m'
 
     # Do search.
-    engine = Google()
+    engine = DuckDuckGo()
     query = ' '.join(sys.argv[1:])
     try:
         results = engine.search(query)
